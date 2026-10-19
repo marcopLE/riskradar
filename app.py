@@ -40,8 +40,78 @@ from riskradar_db import (
 
 
 st.set_page_config(page_title="RiskRadar", page_icon="🎯", layout="wide")
-st.title("🎯 RiskRadar")
-st.caption("Risiken in IT-Projekten erkennen, bewerten und im Blick behalten.")
+st.markdown(
+    """
+    <style>
+    :root {
+        --rr-ink: #172b4d;
+        --rr-muted: #62748a;
+        --rr-border: #e5eaf1;
+        --rr-surface: #ffffff;
+        --rr-canvas: #f5f7fb;
+        --rr-accent: #3659c9;
+    }
+    .stApp { background: var(--rr-canvas); color: var(--rr-ink); }
+    .block-container { max-width: 1480px; padding: 2rem 3rem 4rem; }
+    h1, h2, h3 { color: var(--rr-ink); letter-spacing: -0.025em; }
+    h1 { font-weight: 750; margin-bottom: 0.15rem; }
+    [data-testid="stCaptionContainer"] { color: var(--rr-muted); }
+    div[data-testid="stMetric"] {
+        background: var(--rr-surface); border: 1px solid var(--rr-border);
+        border-radius: 16px; padding: 1.15rem 1.35rem;
+        box-shadow: 0 3px 12px rgba(23, 43, 77, 0.045);
+    }
+    div[data-testid="stMetricLabel"] p {
+        color: var(--rr-muted); font-size: 0.88rem; font-weight: 600;
+    }
+    div[data-testid="stMetricValue"] { color: var(--rr-ink); font-weight: 750; }
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        gap: 0.35rem; border-bottom: 1px solid var(--rr-border);
+    }
+    div[data-testid="stTabs"] button[role="tab"] {
+        color: var(--rr-muted); font-weight: 650; padding: 0.85rem 1.1rem;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: var(--rr-accent); border-bottom-color: var(--rr-accent);
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: var(--rr-border); border-radius: 15px;
+        background: var(--rr-surface); box-shadow: 0 3px 12px rgba(23, 43, 77, 0.035);
+    }
+    div[data-testid="stForm"] {
+        padding: 1.25rem; border: 1px solid var(--rr-border);
+        border-radius: 15px; background: var(--rr-surface);
+    }
+    .stButton > button, [data-testid="stFormSubmitter"] > button {
+        border-radius: 10px; font-weight: 650; min-height: 2.7rem;
+    }
+    div[data-testid="stTabs"] div[data-testid="stButton"] > button {
+        min-height: 5.2rem; white-space: pre-line; border-radius: 12px;
+        border-color: var(--rr-border); background: var(--rr-surface);
+        line-height: 1.45; font-weight: 650;
+    }
+    div[data-testid="stTabs"] div[data-testid="stButton"] > button:hover {
+        border-color: #9aaddc; color: var(--rr-accent);
+    }
+    @media (max-width: 900px) {
+        .block-container { padding: 1.5rem 1.25rem 3rem; }
+    }
+    @media (max-width: 560px) {
+        .block-container { padding: 1rem 0.8rem 2rem; }
+        div[data-testid="stTabs"] button[role="tab"] { padding: 0.7rem 0.55rem; }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+hero, hero_meta = st.columns([4, 1.2], vertical_alignment="center")
+with hero:
+    st.title("🎯 RiskRadar")
+    st.caption("Risiken in IT-Projekten erkennen, bewerten und im Blick behalten.")
+with hero_meta:
+    st.markdown("**Projekt-Risikosteuerung**")
+    st.caption("Übersicht · Bewertung · Maßnahmen")
 st.info(
     "Hinweis zur Speicherung: Auf Streamlit Community Cloud ist das lokale Dateisystem "
     "nicht dauerhaft. SQLite-Daten können bei Neustarts oder erneuten Deployments verloren gehen."
@@ -214,10 +284,10 @@ with matrix_tab:
             ):
                 st.session_state["selected_matrix_cell"] = (probability, impact)
 
+    st.markdown("**Auswirkung →**")
     impact_labels = st.columns([0.8, 1, 1, 1, 1, 1])
-    impact_labels[0].markdown("**Auswirkung →**")
-    for impact in range(1, 6):
-        impact_labels[impact].markdown(f"**{impact}**")
+    for impact, column in zip(range(1, 6), impact_labels[1:]):
+        column.markdown(f"**{impact}**")
     thresholds = DEFAULT_RISK_THRESHOLDS
     high_range = (
         f"{thresholds.medium_max + 1}–25"

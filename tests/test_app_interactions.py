@@ -81,6 +81,22 @@ class RiskRadarAppTests(unittest.TestCase):
         self.assertEqual(len(app.exception), 0)
         self.assertEqual([tab.label for tab in app.tabs], ["Übersicht", "Projekte", "Risiken", "Risikomatrix"])
         self.assertTrue(any("nicht dauerhaft" in item.value for item in app.info))
+        self.assertEqual(
+            [metric.label for metric in app.metric],
+            ["Projekte", "Risiken", "Kritische Risiken"],
+        )
+        matrix_buttons = [
+            button for button in app.button
+            if button.key and button.key.startswith("matrix_cell_")
+        ]
+        self.assertEqual(len(matrix_buttons), 25)
+        self.assertTrue(any("Auswirkung →" in item.value for item in app.markdown))
+        app.button(key="matrix_cell_5_5").click().run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertTrue(any(
+            "Feld: Wahrscheinlichkeit 5 × Auswirkung 5" in item.value
+            for item in app.markdown
+        ))
 
     def test_matrix_legend_uses_configured_thresholds(self):
         configured = RiskThresholds(low_max=4, medium_max=10)
