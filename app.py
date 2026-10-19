@@ -39,23 +39,42 @@ from riskradar_db import (
 )
 
 
-st.set_page_config(page_title="RiskRadar", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="RiskRadar | IT-Projektrisiken", page_icon="🎯", layout="wide")
 st.markdown(
     """
     <style>
     :root {
-        --rr-ink: #172b4d;
-        --rr-muted: #62748a;
-        --rr-border: #e5eaf1;
+        --rr-ink: #18304d;
+        --rr-muted: #65758a;
+        --rr-border: #e2e8ef;
         --rr-surface: #ffffff;
-        --rr-canvas: #f5f7fb;
-        --rr-accent: #3659c9;
+        --rr-canvas: #f4f6f8;
+        --rr-accent: #1769aa;
     }
     .stApp { background: var(--rr-canvas); color: var(--rr-ink); }
     .block-container { max-width: 1480px; padding: 2rem 3rem 4rem; }
     h1, h2, h3 { color: var(--rr-ink); letter-spacing: -0.025em; }
-    h1 { font-weight: 750; margin-bottom: 0.15rem; }
+    h1 { font-weight: 760; margin-bottom: 0.15rem; }
+    h2, h3 { font-weight: 700; }
     [data-testid="stCaptionContainer"] { color: var(--rr-muted); }
+    .rr-eyebrow {
+        color: var(--rr-accent); font-size: 0.72rem; letter-spacing: 0.12em;
+        text-transform: uppercase; font-weight: 750; margin-bottom: 0.4rem;
+    }
+    .rr-header {
+        align-items: center; display: flex; flex-wrap: wrap;
+        gap: 1.5rem 2rem; justify-content: space-between;
+    }
+    .rr-header-copy { flex: 1 1 28rem; min-width: 0; }
+    .rr-header h1 {
+        color: var(--rr-ink); font-size: clamp(2.2rem, 4vw, 3rem);
+        font-weight: 760; letter-spacing: -0.04em; line-height: 1.05; margin: 0;
+    }
+    .rr-header-subtitle { color: var(--rr-muted); margin-top: 0.55rem; }
+    .rr-brand-placeholder { flex: 0 1 18rem; margin-left: auto; max-width: 100%;
+        background: #fff; border: 1px dashed #aebbc9; border-radius: 12px;
+        padding: 0.7rem 1rem; text-align: center;
+    }
     div[data-testid="stMetric"] {
         background: var(--rr-surface); border: 1px solid var(--rr-border);
         border-radius: 16px; padding: 1.15rem 1.35rem;
@@ -78,6 +97,14 @@ st.markdown(
         border-color: var(--rr-border); border-radius: 15px;
         background: var(--rr-surface); box-shadow: 0 3px 12px rgba(23, 43, 77, 0.035);
     }
+    .rr-brand-placeholder span {
+        color: var(--rr-muted); display: block; font-size: 0.67rem;
+        font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+    }
+    .rr-brand-placeholder strong {
+        color: var(--rr-ink); display: block; font-size: 0.96rem; margin: 0.12rem 0;
+    }
+    .rr-brand-placeholder small { color: var(--rr-muted); font-size: 0.72rem; }
     div[data-testid="stForm"] {
         padding: 1.25rem; border: 1px solid var(--rr-border);
         border-radius: 15px; background: var(--rr-surface);
@@ -105,16 +132,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-hero, hero_meta = st.columns([4, 1.2], vertical_alignment="center")
-with hero:
-    st.title("🎯 RiskRadar")
-    st.caption("Risiken in IT-Projekten erkennen, bewerten und im Blick behalten.")
-with hero_meta:
-    st.markdown("**Projekt-Risikosteuerung**")
-    st.caption("Übersicht · Bewertung · Maßnahmen")
+st.markdown(
+    '<div class="rr-header">'
+    '<div class="rr-header-copy">'
+    '<div class="rr-eyebrow">IT-Projektrisiken · Portfolio-Übersicht</div>'
+    '<h1>RiskRadar</h1>'
+    '<div class="rr-header-subtitle">Projektportfolio und Risiken auf einen Blick steuern.</div>'
+    '</div>'
+    '<div class="rr-brand-placeholder">'
+    '<span>Brand Asset</span><strong>Logo-Platzhalter</strong>'
+    '<small>adesso-inspirierte Demo</small></div></div>',
+    unsafe_allow_html=True,
+)
+st.caption("Kein offizielles adesso-Logo eingebunden.")
+st.divider()
 st.info(
-    "Hinweis zur Speicherung: Auf Streamlit Community Cloud ist das lokale Dateisystem "
-    "nicht dauerhaft. SQLite-Daten können bei Neustarts oder erneuten Deployments verloren gehen."
+    "Demo-Hinweis: Auf Streamlit Community Cloud ist das lokale Dateisystem nicht dauerhaft. "
+    "SQLite-Daten können bei Neustarts oder erneuten Deployments verloren gehen."
 )
 st.caption(
     "Risikostufen sind ein konfigurierbares Demonstrationsmodell, fachlich nicht validiert. "
@@ -143,6 +177,8 @@ critical_risks = [
     if risk_level(calculate_score(risk["probability"], risk["impact"])) == "Hoch"
 ]
 
+st.subheader("Portfolio auf einen Blick")
+st.caption("Aktueller Umfang und Zahl der Risiken oberhalb der konfigurierten Demonstrationsschwelle.")
 metric_cols = st.columns(3)
 metric_cols[0].metric("Projekte", len(projects))
 metric_cols[1].metric("Risiken", len(risks))
@@ -157,6 +193,7 @@ overview, projects_tab, risks_tab, matrix_tab = st.tabs(
 
 with overview:
     st.subheader("Risiken mit höchstem Score")
+    st.caption("Diese Übersicht hebt die höchstbewerteten Einträge aus allen Projekten hervor.")
     if not risks:
         st.info("Noch keine Risiken vorhanden. Lege im Tab „Risiken“ den ersten Eintrag an.")
     for risk in risks[:8]:
@@ -173,6 +210,7 @@ with overview:
 
 with projects_tab:
     st.subheader("Projekte")
+    st.caption("Verwalte die Vorhaben, denen du Risiken zuordnest.")
     with st.form("project_form", clear_on_submit=True):
         name = st.text_input("Projektname", placeholder="z. B. CRM-Einführung")
         description = st.text_area("Beschreibung")
@@ -201,6 +239,7 @@ with projects_tab:
 
 with risks_tab:
     st.subheader("Risiken erfassen und bewerten")
+    st.caption("Erfasse Eintrittswahrscheinlichkeit und Auswirkung auf einer Skala von 1 bis 5.")
     if not projects:
         st.info("Lege zuerst ein Projekt an.")
     else:

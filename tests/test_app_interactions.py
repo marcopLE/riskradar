@@ -81,6 +81,9 @@ class RiskRadarAppTests(unittest.TestCase):
         self.assertEqual(len(app.exception), 0)
         self.assertEqual([tab.label for tab in app.tabs], ["Übersicht", "Projekte", "Risiken", "Risikomatrix"])
         self.assertTrue(any("nicht dauerhaft" in item.value for item in app.info))
+        self.assertTrue(any("Logo-Platzhalter" in item.value for item in app.markdown))
+        self.assertTrue(any("IT-Projektrisiken · Portfolio-Übersicht" in item.value for item in app.markdown))
+        self.assertTrue(any("Kein offizielles adesso-Logo" in item.value for item in app.caption))
         self.assertEqual(
             [metric.label for metric in app.metric],
             ["Projekte", "Risiken", "Kritische Risiken"],
