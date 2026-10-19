@@ -2,6 +2,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -93,7 +94,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_initialize_upgrades_legacy_schema_without_losing_rows(self):
         legacy_path = Path(self.tempdir.name) / "legacy.db"
-        with sqlite3.connect(legacy_path) as connection:
+        with closing(sqlite3.connect(legacy_path)) as connection, connection:
             connection.executescript(
                 """CREATE TABLE projects (
                        id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,7 +121,7 @@ class DatabaseTests(unittest.TestCase):
 
     def test_initialize_preserves_case_only_duplicates_and_rejects_new_duplicates(self):
         legacy_path = Path(self.tempdir.name) / "case-duplicates.db"
-        with sqlite3.connect(legacy_path) as connection:
+        with closing(sqlite3.connect(legacy_path)) as connection, connection:
             connection.executescript(
                 """CREATE TABLE projects (
                        id INTEGER PRIMARY KEY AUTOINCREMENT,

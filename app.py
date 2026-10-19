@@ -5,6 +5,7 @@ import streamlit as st
 import risk_logic
 import riskradar_db
 from runtime_imports import ensure_module_exports
+from recommended_measures import recommend_measures
 
 risk_logic = ensure_module_exports(
     risk_logic,
@@ -176,15 +177,21 @@ critical_risks = [
     risk for risk in risks
     if risk_level(calculate_score(risk["probability"], risk["impact"])) == "Hoch"
 ]
+measure_plans = recommend_measures(risks, DEFAULT_RISK_THRESHOLDS)
+measure_count = sum(len(plan.measures) for plan in measure_plans)
 
 st.subheader("Portfolio auf einen Blick")
-st.caption("Aktueller Umfang und Zahl der Risiken oberhalb der konfigurierten Demonstrationsschwelle.")
-metric_cols = st.columns(3)
+st.caption("Projektumfang, Risikobelastung und empfohlene nächste Schritte im Überblick.")
+metric_cols = st.columns(4)
 metric_cols[0].metric("Projekte", len(projects))
 metric_cols[1].metric("Risiken", len(risks))
 metric_cols[2].metric(
     "Kritische Risiken", len(critical_risks),
     help=f"Score über {DEFAULT_RISK_THRESHOLDS.medium_max} von 25",
+)
+metric_cols[3].metric(
+    "Empfohlene Maßnahmen", measure_count,
+    help="Gesamtzahl aller Regelvorschläge für die aktuell gespeicherten Risiken.",
 )
 
 overview, projects_tab, risks_tab, matrix_tab = st.tabs(
@@ -207,6 +214,36 @@ with overview:
                 f'<div style="text-align:right;color:{color};font-weight:700">'
                 f'{risk_level(score)} · {score}/25</div>', unsafe_allow_html=True
             )
+
+    st.divider()
+    st.subheader("Empfohlene Maßnahmen")
+    st.caption(f"{measure_count} konkrete Vorschläge über {len(measure_plans)} Risiken.")
+    st.info(
+        "Unverbindliche, regelbasierte Orientierungshilfe. Die Vorschläge werden nicht mit KI erzeugt "
+        "und ersetzen keine fachliche Prüfung durch das Projektteam."
+    )
+    if measure_plans:
+        measure_label_by_id = {
+            plan.risk_id: f"[#{plan.risk_id}] {plan.title} · {plan.project_name}"
+            for plan in measure_plans
+        }
+        measure_plan_by_label = {
+            measure_label_by_id[plan.risk_id]: plan for plan in measure_plans
+        }
+        selected_measure_risk = st.selectbox(
+            "Risiko für Maßnahmen wählen",
+            list(measure_plan_by_label),
+            key="recommended_measures_risk",
+        )
+        selected_plan = measure_plan_by_label[selected_measure_risk]
+        st.markdown(
+            f"**{selected_plan.category}** · Priorität **{selected_plan.priority}** · "
+            f"Score {selected_plan.score}/25"
+        )
+        for measure in selected_plan.measures:
+            st.markdown(f"- {measure}")
+    else:
+        st.info("Lege zuerst Risiken an, um passende Maßnahmenvorschläge zu erhalten.")
 
 with projects_tab:
     st.subheader("Projekte")
@@ -244,7 +281,9 @@ with risks_tab:
         st.info("Lege zuerst ein Projekt an.")
     else:
         with st.form("risk_form", clear_on_submit=True):
-            selected_project = st.selectbox("Projekt", list(project_id_by_label))
+            selected_project = st.selectbox(
+                "Projekt", list(project_id_by_label), key="risk_project_selector"
+            )
             title = st.text_input("Risikotitel")
             description = st.text_area("Beschreibung", key="risk_description")
             probability = st.select_slider("Eintrittswahrscheinlichkeit", options=[1, 2, 3, 4, 5], value=3)

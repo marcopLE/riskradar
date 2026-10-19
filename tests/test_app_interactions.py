@@ -86,7 +86,7 @@ class RiskRadarAppTests(unittest.TestCase):
         self.assertTrue(any("Kein offizielles adesso-Logo" in item.value for item in app.caption))
         self.assertEqual(
             [metric.label for metric in app.metric],
-            ["Projekte", "Risiken", "Kritische Risiken"],
+            ["Projekte", "Risiken", "Kritische Risiken", "Empfohlene Maßnahmen"],
         )
         matrix_buttons = [
             button for button in app.button
@@ -100,6 +100,20 @@ class RiskRadarAppTests(unittest.TestCase):
             "Feld: Wahrscheinlichkeit 5 × Auswirkung 5" in item.value
             for item in app.markdown
         ))
+
+    def test_recommended_measures_can_be_selected_and_are_disclosed(self):
+        app = self.run_app()
+        self.assertEqual(len(app.exception), 0)
+        self.assertTrue(any("nicht mit KI erzeugt" in item.value for item in app.info))
+        selector = app.selectbox(key="recommended_measures_risk")
+        security_risk = next(
+            option for option in selector.options
+            if "Fehlkonfiguration von Zugriffsrechten" in option
+        )
+        selector.set_value(security_risk).run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertTrue(any("Sicherheitsrisiken" in item.value for item in app.markdown))
+        self.assertTrue(any("Sicherheitsprüfung" in item.value for item in app.markdown))
 
     def test_matrix_legend_uses_configured_thresholds(self):
         configured = RiskThresholds(low_max=4, medium_max=10)
@@ -155,8 +169,11 @@ class RiskRadarAppTests(unittest.TestCase):
 
     def test_risk_form_saves_rating_and_shows_duplicate_feedback(self):
         app = self.run_app()
-        cloud_option = next(option for option in app.selectbox[0].options if option.endswith("Cloud-Modernisierung"))
-        app.selectbox[0].set_value(cloud_option)
+        cloud_option = next(
+            option for option in app.selectbox(key="risk_project_selector").options
+            if option.endswith("Cloud-Modernisierung")
+        )
+        app.selectbox(key="risk_project_selector").set_value(cloud_option)
         app.text_input[1].set_value("AppTest-Risiko")
         app.text_area[1].set_value("Fiktives Risiko für einen Integrationstest")
         app.select_slider[0].set_value(5)
@@ -167,7 +184,7 @@ class RiskRadarAppTests(unittest.TestCase):
         self.assertEqual(len(saved), 1)
         self.assertEqual((saved[0]["probability"], saved[0]["impact"]), (5, 4))
 
-        app.selectbox[0].set_value(cloud_option)
+        app.selectbox(key="risk_project_selector").set_value(cloud_option)
         app.text_input[1].set_value("AppTest-Risiko")
         app.button(key="FormSubmitter:risk_form-Risiko speichern").click().run()
         self.assertEqual(len(app.exception), 0)
