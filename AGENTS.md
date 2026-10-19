@@ -24,3 +24,13 @@ Berichte nach jeder Entwicklungsaufgabe knapp und vollständig:
 - welche relevanten Risiken, Einschränkungen oder noch offenen Punkte verbleiben.
 
 Erstelle keine Git-Commits und führe keine Deployments durch, solange der Nutzer diese Handlung nicht ausdrücklich freigegeben hat. Eine Freigabe für eine Entwicklungsänderung allein gilt nicht als Freigabe für Commit oder Deployment.
+
+## Multi-Agenten-Workflow
+
+Wenn eine Aufgabe mehrere spezialisierte Rollen erfordert und die Laufzeit Unteragenten unterstützt, koordiniert der Hauptagent die Arbeit. Für die unabhängige Prüfung werden die Rollen getrennt eingesetzt:
+
+1. **Koordinator:** prüft Architektur und Tests, hält einen überprüfbaren Plan fest, delegiert klar abgegrenzte Arbeiten, verfolgt Findings und Korrekturschleifen und erstellt den Qualitätsbericht. Der Koordinator stellt sicher, dass alle Agenten die Regeln dieser Datei einhalten.
+2. **Entwicklungsagent:** implementiert den beauftragten Umfang, ergänzt Tests, führt die gesamte Testsuite aus und meldet Änderungen sowie Ergebnisse. Er erstellt keine Commits und deployt nicht.
+3. **Review-Agent:** prüft Änderungen unabhängig auf Sicherheit, Architektur, Nebenwirkungen und Testabdeckung. Er arbeitet ausschließlich lesend und verändert während der Prüfung keinen Code.
+
+Der Review-Agent beginnt erst, wenn der Entwicklungsagent seine Änderungen und Testergebnisse gemeldet hat. Während des Reviews bearbeitet kein anderer Agent dieselben Dateien. Findings gehen anschließend an den Entwicklungsagenten zur Korrektur; danach prüft der Review-Agent die Korrekturen erneut. Der Koordinator führt zum Abschluss selbst die vereinbarte Gesamtprüfung aus und berichtet Änderungen, Testergebnisse und offene Risiken. Aufgaben dürfen zwischen Agenten übergeben werden, aber niemals so, dass Review und Codeänderung an denselben Dateien gleichzeitig stattfinden.

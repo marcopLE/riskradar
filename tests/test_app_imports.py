@@ -2,14 +2,12 @@
 
 import ast
 import importlib
+import subprocess
+import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-
-from streamlit.testing.v1 import AppTest
 
 import risk_logic
-import riskradar_db
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -38,27 +36,28 @@ class AppImportTests(unittest.TestCase):
                             f"app.py imports missing name {imported.name!r} from {node.module!r}",
                         )
 
-        import risk_logic
-
         self.assertEqual(Path(risk_logic.__file__).resolve(), PROJECT_ROOT / "risk_logic.py")
         self.assertTrue(callable(risk_logic.group_risks_by_cell))
 
-    def test_app_recovers_if_streamlit_has_a_stale_logic_module(self):
-        del risk_logic.group_risks_by_cell
-        try:
-            with (
-                patch.object(riskradar_db, "initialize_db"),
-                patch.object(riskradar_db, "seed_sample_data"),
-                patch.object(riskradar_db, "list_projects", return_value=[]),
-                patch.object(riskradar_db, "list_risks", return_value=[]),
-            ):
-                app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
-
-            self.assertEqual(len(app.exception), 0)
-            self.assertTrue(callable(risk_logic.group_risks_by_cell))
-        finally:
-            if not hasattr(risk_logic, "group_risks_by_cell"):
-                importlib.reload(risk_logic)
+    def test_stale_module_is_reloaded_when_an_export_is_missing(self):
+        script = "\n".join((
+            "import risk_logic, riskradar_db",
+            "from runtime_imports import ensure_module_exports",
+            "del risk_logic.group_risks_by_cell",
+            "del riskradar_db.DatabaseError",
+            "ensure_module_exports(risk_logic, ('group_risks_by_cell',))",
+            "ensure_module_exports(riskradar_db, ('DatabaseError', 'DuplicateRecordError'))",
+            "assert callable(risk_logic.group_risks_by_cell)",
+            "assert issubclass(riskradar_db.DuplicateRecordError, riskradar_db.DatabaseError)",
+        ))
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

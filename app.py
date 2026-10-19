@@ -1,35 +1,85 @@
 """RiskRadar: IT project risk management with Streamlit and SQLite."""
 
-import importlib
-
 import streamlit as st
 
 import risk_logic
+import riskradar_db
+from runtime_imports import ensure_module_exports
 
-# Streamlit reruns this script in one process. Refresh an older cached module
-# when the matrix helper was added while that process was already running.
-if not hasattr(risk_logic, "group_risks_by_cell"):
-    risk_logic = importlib.reload(risk_logic)
+risk_logic = ensure_module_exports(
+    risk_logic,
+    ("DEFAULT_RISK_THRESHOLDS", "RiskInputError", "calculate_score", "group_risks_by_cell", "risk_color", "risk_level"),
+)
+riskradar_db = ensure_module_exports(
+    riskradar_db,
+    (
+        "DatabaseError", "DatabaseOperationError", "DataValidationError", "DuplicateRecordError",
+        "add_project", "add_risk", "initialize_db", "list_projects", "list_risks", "seed_sample_data",
+    ),
+)
 
-from risk_logic import calculate_score, group_risks_by_cell, risk_color, risk_level
-from riskradar_db import add_project, add_risk, initialize_db, list_projects, list_risks, seed_sample_data
+from risk_logic import (
+    DEFAULT_RISK_THRESHOLDS,
+    RiskInputError,
+    calculate_score,
+    group_risks_by_cell,
+    risk_color,
+    risk_level,
+)
+from riskradar_db import (
+    DatabaseError,
+    DataValidationError,
+    DuplicateRecordError,
+    add_project,
+    add_risk,
+    initialize_db,
+    list_projects,
+    list_risks,
+    seed_sample_data,
+)
 
 
 st.set_page_config(page_title="RiskRadar", page_icon="🎯", layout="wide")
-initialize_db()
-seed_sample_data()
-
 st.title("🎯 RiskRadar")
 st.caption("Risiken in IT-Projekten erkennen, bewerten und im Blick behalten.")
+st.info(
+    "Hinweis zur Speicherung: Auf Streamlit Community Cloud ist das lokale Dateisystem "
+    "nicht dauerhaft. SQLite-Daten können bei Neustarts oder erneuten Deployments verloren gehen."
+)
+st.caption(
+    "Risikostufen sind ein konfigurierbares Demonstrationsmodell, fachlich nicht validiert. "
+    f"Standard: niedrig bis {DEFAULT_RISK_THRESHOLDS.low_max}, mittel bis "
+    f"{DEFAULT_RISK_THRESHOLDS.medium_max}, danach hoch."
+)
 
-projects = list_projects()
-risks = list_risks()
-critical_risks = [r for r in risks if calculate_score(r["probability"], r["impact"]) >= 15]
+try:
+    initialize_db()
+    seed_sample_data()
+    projects = list_projects()
+    risks = list_risks()
+except DatabaseError as exc:
+    st.error(f"Die lokale Datenbank konnte nicht gelesen oder aktualisiert werden: {exc}")
+    st.stop()
+
+project_label_by_id = {
+    project["id"]: f"[{project['id']}] {project['name']}" for project in projects
+}
+project_id_by_label = {
+    label: project_id for project_id, label in project_label_by_id.items()
+}
+
+critical_risks = [
+    risk for risk in risks
+    if risk_level(calculate_score(risk["probability"], risk["impact"])) == "Hoch"
+]
 
 metric_cols = st.columns(3)
 metric_cols[0].metric("Projekte", len(projects))
 metric_cols[1].metric("Risiken", len(risks))
-metric_cols[2].metric("Kritische Risiken", len(critical_risks), help="Score ab 15 von 25")
+metric_cols[2].metric(
+    "Kritische Risiken", len(critical_risks),
+    help=f"Score über {DEFAULT_RISK_THRESHOLDS.medium_max} von 25",
+)
 
 overview, projects_tab, risks_tab, matrix_tab = st.tabs(
     ["Übersicht", "Projekte", "Risiken", "Risikomatrix"]
@@ -65,11 +115,12 @@ with projects_tab:
                     add_project(name, description)
                     st.success(f"Projekt „{name.strip()}“ wurde angelegt.")
                     st.rerun()
-                except Exception as exc:
-                    if "UNIQUE constraint failed" in str(exc):
-                        st.error("Ein Projekt mit diesem Namen existiert bereits.")
-                    else:
-                        raise
+                except DataValidationError as exc:
+                    st.error(str(exc))
+                except DuplicateRecordError as exc:
+                    st.error(str(exc))
+                except DatabaseError as exc:
+                    st.error(f"Das Projekt konnte nicht gespeichert werden: {exc}")
     if projects:
         for project in projects:
             with st.container(border=True):
@@ -83,9 +134,8 @@ with risks_tab:
     if not projects:
         st.info("Lege zuerst ein Projekt an.")
     else:
-        project_lookup = {p["name"]: p["id"] for p in projects}
         with st.form("risk_form", clear_on_submit=True):
-            selected_name = st.selectbox("Projekt", list(project_lookup))
+            selected_project = st.selectbox("Projekt", list(project_id_by_label))
             title = st.text_input("Risikotitel")
             description = st.text_area("Beschreibung", key="risk_description")
             probability = st.select_slider("Eintrittswahrscheinlichkeit", options=[1, 2, 3, 4, 5], value=3)
@@ -97,14 +147,23 @@ with risks_tab:
                 if not title.strip():
                     st.error("Bitte gib einen Risikotitel ein.")
                 else:
-                    add_risk(project_lookup[selected_name], title, description, probability, impact)
-                    st.success("Risiko wurde gespeichert.")
-                    st.rerun()
+                    try:
+                        add_risk(project_id_by_label[selected_project], title, description, probability, impact)
+                        st.success("Risiko wurde gespeichert.")
+                        st.rerun()
+                    except (DataValidationError, RiskInputError) as exc:
+                        st.error(str(exc))
+                    except DuplicateRecordError as exc:
+                        st.error(str(exc))
+                    except DatabaseError as exc:
+                        st.error(f"Das Risiko konnte nicht gespeichert werden: {exc}")
 
     st.divider()
-    filter_options = ["Alle Projekte"] + [p["name"] for p in projects]
+    filter_options = ["Alle Projekte"] + list(project_id_by_label)
     selected_filter = st.selectbox("Risiken filtern", filter_options, key="risk_filter")
-    filtered_risks = list_risks(None if selected_filter == "Alle Projekte" else project_lookup[selected_filter]) if projects else []
+    filtered_risks = list_risks(
+        None if selected_filter == "Alle Projekte" else project_id_by_label[selected_filter]
+    ) if projects else []
     if not filtered_risks:
         st.info("Für diese Auswahl sind keine Risiken vorhanden.")
     for risk in filtered_risks:
@@ -124,13 +183,13 @@ with matrix_tab:
     st.subheader("5×5-Risikomatrix")
     st.caption("Wähle ein Feld, um alle dort eingetragenen Risiken anzuzeigen.")
     if projects:
-        matrix_project_names = ["Alle Projekte"] + [project["name"] for project in projects]
+        matrix_project_names = ["Alle Projekte"] + list(project_id_by_label)
         matrix_project = st.selectbox(
             "Projektfilter", matrix_project_names, key="matrix_project_filter"
         )
         matrix_project_id = (
             None if matrix_project == "Alle Projekte"
-            else next(project["id"] for project in projects if project["name"] == matrix_project)
+            else project_id_by_label[matrix_project]
         )
         matrix_risks = list_risks(matrix_project_id)
     else:
@@ -159,7 +218,17 @@ with matrix_tab:
     impact_labels[0].markdown("**Auswirkung →**")
     for impact in range(1, 6):
         impact_labels[impact].markdown(f"**{impact}**")
-    st.caption("🟩 Niedrig (Score 1–6)　 🟨 Mittel (7–14)　 🟥 Hoch (15–25)")
+    thresholds = DEFAULT_RISK_THRESHOLDS
+    high_range = (
+        f"{thresholds.medium_max + 1}–25"
+        if thresholds.medium_max < 25
+        else "keine möglichen Scores"
+    )
+    st.caption(
+        f"🟩 Niedrig (Score 1–{thresholds.low_max})　 "
+        f"🟨 Mittel ({thresholds.low_max + 1}–{thresholds.medium_max})　 "
+        f"🟥 Hoch ({high_range})"
+    )
 
     selected_cell = st.session_state.get("selected_matrix_cell")
     if selected_cell:
