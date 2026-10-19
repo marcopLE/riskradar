@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from risk_logic import calculate_score, risk_level
+from risk_logic import calculate_score, group_risks_by_cell, risk_level
 from riskradar_db import add_project, add_risk, initialize_db, list_projects, list_risks, seed_sample_data
 
 
@@ -19,6 +19,20 @@ class RiskLogicTests(unittest.TestCase):
         self.assertEqual(risk_level(6), "Niedrig")
         self.assertEqual(risk_level(8), "Mittel")
         self.assertEqual(risk_level(15), "Hoch")
+
+    def test_matrix_keeps_multiple_risks_in_the_same_cell(self):
+        risks = [
+            {"title": "Risiko A", "probability": 4, "impact": 3},
+            {"title": "Risiko B", "probability": 4, "impact": 3},
+            {"title": "Risiko C", "probability": 2, "impact": 5},
+        ]
+        cells = group_risks_by_cell(risks)
+        self.assertEqual([risk["title"] for risk in cells[(4, 3)]], ["Risiko A", "Risiko B"])
+        self.assertEqual(len(cells[(2, 5)]), 1)
+
+    def test_matrix_rejects_invalid_coordinates(self):
+        with self.assertRaises(ValueError):
+            group_risks_by_cell([{"probability": 0, "impact": 3}])
 
 
 class DatabaseTests(unittest.TestCase):
@@ -47,6 +61,14 @@ class DatabaseTests(unittest.TestCase):
         project_id = add_project("Projekt", "", self.db_path)
         with self.assertRaises(Exception):
             add_risk(project_id, "Ungültig", "", 0, 3, self.db_path)
+
+    def test_risk_listing_can_be_filtered_by_project(self):
+        first_project = add_project("Projekt A", "", self.db_path)
+        second_project = add_project("Projekt B", "", self.db_path)
+        add_risk(first_project, "Risiko A", "", 2, 2, self.db_path)
+        add_risk(second_project, "Risiko B", "", 4, 4, self.db_path)
+        filtered = list_risks(first_project, self.db_path)
+        self.assertEqual([risk["title"] for risk in filtered], ["Risiko A"])
 
 
 if __name__ == "__main__":
